@@ -551,8 +551,7 @@ AS
 
 
 
-
-BEGIN
+		BEGIN
     INSERT INTO BI_MODEL.HECHO_MENSAJERIA (
         HECHO_MENSAJERIA_DIA_NRO,
         HECHO_MENSAJERIA_RANGO_NRO,
@@ -569,7 +568,14 @@ BEGIN
         t1.TIPO_PAQUETE,
         t1.ESTADO_NRO,
         t1.CANT_MENSAJES,
-        AVG(t_mensajeria.MENSAJERIA_VALOR_ASEGURADO) AS VALOR_ASEGURADO_PROMEDIO
+        (SELECT AVG(t_mensajeria.MENSAJERIA_VALOR_ASEGURADO)
+         FROM NEW_MODEL.MENSAJERIA t_mensajeria
+         JOIN NEW_MODEL.ENVIO_MENSAJERIA t_envio_mensajeria ON t_envio_mensajeria.ENVIO_MENSAJERIA_NRO = t_mensajeria.MENSAJERIA_NRO
+         JOIN NEW_MODEL.DIRECCION_USUARIO t_direccion_usuario ON t_direccion_usuario.DIRECCION_USUARIO_NRO = t_envio_mensajeria.ENVIO_MENSAJERIA_DIR_DEST
+         WHERE t_mensajeria.MENSAJERIA_ESTADO = t1.ESTADO_NRO
+           AND t_direccion_usuario.DIRECCION_USUARIO_LOCALIDAD_NRO = t1.LOCALIDAD_NRO
+           AND t_mensajeria.MENSAJERIA_PAQUETE_NRO = t_tipo_paquete.TIPO_PAQUETE_NRO
+        ) AS VALOR_ASEGURADO_PROMEDIO
     FROM
         (
             SELECT
@@ -585,25 +591,16 @@ BEGIN
                 JOIN BI_MODEL.RANGO_HORARIO t_rango_horario ON t_rango_horario.RANGO_HORARIO_NRO = dbo.obtenerRangoHorarioNro(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA)
                 JOIN NEW_MODEL.DIRECCION_USUARIO t_direccion_usuario ON t_direccion_usuario.DIRECCION_USUARIO_NRO = t_envio_mensajeria.ENVIO_MENSAJERIA_DIR_DEST
                 JOIN NEW_MODEL.LOCALIDAD t_localidad ON t_localidad.LOCALIDAD_NRO = t_direccion_usuario.DIRECCION_USUARIO_LOCALIDAD_NRO
+                -- tipo paquete
                 JOIN NEW_MODEL.TIPO_PAQUETE t_tipo_paquete ON t_mensajeria.MENSAJERIA_PAQUETE_NRO = t_tipo_paquete.TIPO_PAQUETE_NRO
+                -- estado
                 JOIN NEW_MODEL.MENSAJERIA_ESTADO t_estado ON t_mensajeria.MENSAJERIA_ESTADO = t_estado.MENSAJERIA_ESTADO_NRO
+                JOIN BI_MODEL.TIEMPO t_tiempo ON t_tiempo.MES = MONTH(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA_ENTREGA)
             GROUP BY
                 DATEPART(WEEKDAY, t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA),
                 dbo.obtenerRangoHorarioNro(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA),
                 t_localidad.LOCALIDAD_NRO,
                 t_tipo_paquete.TIPO_PAQUETE_NOMBRE,
                 t_estado.MENSAJERIA_ESTADO_NRO
-        ) AS t1
-        JOIN NEW_MODEL.MENSAJERIA t_mensajeria ON t_mensajeria.MENSAJERIA_ESTADO = t1.ESTADO_NRO
-    GROUP BY
-        t1.DIA_NRO,
-        t1.RANGO,
-        t1.LOCALIDAD_NRO,
-        t1.TIPO_PAQUETE,
-        t1.ESTADO_NRO,
-		t1.CANT_MENSAJES;
+        ) AS t1;
 END;
-
-
-
-		
