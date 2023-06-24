@@ -523,84 +523,28 @@ AS
     dbo.obtenerRangoHorarioNro(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA) AS RANGO,
     t_rango_horario.RANGO_HORARIO_INICIO AS HORA_INICIO,
     t_rango_horario.RANGO_HORARIO_FIN AS HORA_FIN,
-    t_localidad.LOCALIDAD_NOMBRE AS LOCALIDAD,
-    t_tipo_paquete.TIPO_PAQUETE_NOMBRE AS CATEGORIA,
+    t_envio_mensajeria.ENVIO_MENSAJERIA_LOCALIDAD_NRO AS LOCALIDAD,
+    t_tipo_paquete.TIPO_PAQUETE_NOMBRE AS TIPO_PAQUETE,
     t_tiempo.MES AS MES,
     t_tiempo.ANIO AS ANIO,
-    COUNT(DISTINCT t_mensajeria.MENSAJERIA_NRO) AS CANT_MENSAJES,
-    COUNT(DISTINCT CASE WHEN t_estado.MENSAJERIA_ESTADO_NRO = 'Estado Mensajeria Cancelado' THEN ISNULL(t_mensajeria.MENSAJERIA_NRO, 0) END) AS CANT_MENSAJERIA_CANCELADOS
+    COUNT(DISTINCT t_mensajeria.MENSAJERIA_NRO) AS CANT_MENSAJES
+    --COUNT(DISTINCT CASE WHEN t_estado.MENSAJERIA_ESTADO_NRO = 'Estado Mensajeria Cancelado' THEN ISNULL(t_mensajeria.MENSAJERIA_NRO, 0) END) AS CANT_MENSAJERIA_CANCELADOS
 
 	FROM NEW_MODEL.MENSAJERIA t_mensajeria
-		JOIN NEW_MODEL.ENVIO_MENSAJERIA t_envio_mensajeria ON t_envio_mensajeria.ENVIO_MENSAJERIA_NRO = t_mensajeria.MENSAJERIA_NRO
+		JOIN NEW_MODEL.ENVIO_MENSAJERIA t_envio_mensajeria ON t_envio_mensajeria.ENVIO_MENSAJERIA_NRO = t_mensajeria.MENSAJERIA_ENVIO_NRO
 		JOIN BI_MODEL.RANGO_HORARIO t_rango_horario ON t_rango_horario.RANGO_HORARIO_NRO = dbo.obtenerRangoHorarioNro(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA)
-		JOIN NEW_MODEL.DIRECCION_USUARIO t_direccion_usuario ON t_direccion_usuario.DIRECCION_USUARIO_NRO = t_envio_mensajeria.ENVIO_MENSAJERIA_DIR_DEST
-		JOIN NEW_MODEL.LOCALIDAD t_localidad ON t_localidad.LOCALIDAD_NRO = t_direccion_usuario.DIRECCION_USUARIO_LOCALIDAD_NRO
 		--tipo paqeute
-		JOIN NEW_MODEL.TIPO_PAQUETE t_tipo_paquete ON t_mensajeria.MENSAJERIA_PAQUETE_NRO = t_tipo_paquete.TIPO_PAQUETE_NRO
+		JOIN NEW_MODEL.PAQUETE t_paquete ON t_mensajeria.MENSAJERIA_PAQUETE_NRO = t_paquete.PAQUETE_NRO
+		JOIN NEW_MODEL.TIPO_PAQUETE t_tipo_paquete ON t_paquete.PAQUETE_TIPO_PAQUETE_NRO = t_tipo_paquete.TIPO_PAQUETE_NRO
 		-- estado
 		JOIN NEW_MODEL.MENSAJERIA_ESTADO t_estado ON t_mensajeria.MENSAJERIA_ESTADO = t_estado.MENSAJERIA_ESTADO_NRO
 		JOIN BI_MODEL.TIEMPO t_tiempo ON t_tiempo.MES = MONTH(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA_ENTREGA)
 
-		GROUP BY DATEPART(WEEKDAY,t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA), dbo.obtenerRangoHorarioNro(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA), t_rango_horario.RANGO_HORARIO_INICIO,t_rango_horario.RANGO_HORARIO_FIN, t_localidad.LOCALIDAD_NOMBRE,  t_tipo_paquete.TIPO_PAQUETE_NOMBRE, t_tiempo.MES, t_tiempo.ANIO
+		GROUP BY DATEPART(WEEKDAY,t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA), dbo.obtenerRangoHorarioNro(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA), t_rango_horario.RANGO_HORARIO_INICIO,t_rango_horario.RANGO_HORARIO_FIN,t_envio_mensajeria.ENVIO_MENSAJERIA_LOCALIDAD_NRO,  t_tipo_paquete.TIPO_PAQUETE_NOMBRE, t_tiempo.MES, t_tiempo.ANIO
 
 		SELECT DISTINCT DATEPART(hour, ENVIO_MENSAJERIA_FECHA) FROM NEW_MODEL.ENVIO_MENSAJERIA
 		SELECT * FROM NEW_MODEL.MENSAJERIA_ESTADO 
+	END
+GO
 
 
-
-
-
-
-		BEGIN
-    INSERT INTO BI_MODEL.HECHO_MENSAJERIA (
-        HECHO_MENSAJERIA_DIA_NRO,
-        HECHO_MENSAJERIA_RANGO_NRO,
-        HECHO_MENSAJERIA_LOCALIDAD_NRO,
-        HECHO_MENSAJERIA_TIPO_PAQUETE,
-        HECHO_MENSAJERIA_ESTADO_NRO,
-        HECHO_MENSAJERIA_CANTIDAD_MENSAJES,
-        HECHO_MENSAJERIA_VALOR_ASEGURADO_PROMEDIO
-    )
-    SELECT
-        t1.DIA_NRO,
-        t1.RANGO,
-        t1.LOCALIDAD_NRO,
-        t1.TIPO_PAQUETE,
-        t1.ESTADO_NRO,
-        t1.CANT_MENSAJES,
-        (SELECT AVG(t_mensajeria.MENSAJERIA_VALOR_ASEGURADO)
-         FROM NEW_MODEL.MENSAJERIA t_mensajeria
-         JOIN NEW_MODEL.ENVIO_MENSAJERIA t_envio_mensajeria ON t_envio_mensajeria.ENVIO_MENSAJERIA_NRO = t_mensajeria.MENSAJERIA_NRO
-         JOIN NEW_MODEL.DIRECCION_USUARIO t_direccion_usuario ON t_direccion_usuario.DIRECCION_USUARIO_NRO = t_envio_mensajeria.ENVIO_MENSAJERIA_DIR_DEST
-         WHERE t_mensajeria.MENSAJERIA_ESTADO = t1.ESTADO_NRO
-           AND t_direccion_usuario.DIRECCION_USUARIO_LOCALIDAD_NRO = t1.LOCALIDAD_NRO
-           AND t_mensajeria.MENSAJERIA_PAQUETE_NRO = t_tipo_paquete.TIPO_PAQUETE_NRO
-        ) AS VALOR_ASEGURADO_PROMEDIO
-    FROM
-        (
-            SELECT
-                DATEPART(WEEKDAY, t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA) AS DIA_NRO,
-                dbo.obtenerRangoHorarioNro(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA) AS RANGO,
-                t_localidad.LOCALIDAD_NRO,
-                t_tipo_paquete.TIPO_PAQUETE_NOMBRE AS TIPO_PAQUETE,
-                t_estado.MENSAJERIA_ESTADO_NRO AS ESTADO_NRO,
-                COUNT(DISTINCT t_mensajeria.MENSAJERIA_NRO) AS CANT_MENSAJES
-            FROM
-                NEW_MODEL.MENSAJERIA t_mensajeria
-                JOIN NEW_MODEL.ENVIO_MENSAJERIA t_envio_mensajeria ON t_envio_mensajeria.ENVIO_MENSAJERIA_NRO = t_mensajeria.MENSAJERIA_NRO
-                JOIN BI_MODEL.RANGO_HORARIO t_rango_horario ON t_rango_horario.RANGO_HORARIO_NRO = dbo.obtenerRangoHorarioNro(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA)
-                JOIN NEW_MODEL.DIRECCION_USUARIO t_direccion_usuario ON t_direccion_usuario.DIRECCION_USUARIO_NRO = t_envio_mensajeria.ENVIO_MENSAJERIA_DIR_DEST
-                JOIN NEW_MODEL.LOCALIDAD t_localidad ON t_localidad.LOCALIDAD_NRO = t_direccion_usuario.DIRECCION_USUARIO_LOCALIDAD_NRO
-                -- tipo paquete
-                JOIN NEW_MODEL.TIPO_PAQUETE t_tipo_paquete ON t_mensajeria.MENSAJERIA_PAQUETE_NRO = t_tipo_paquete.TIPO_PAQUETE_NRO
-                -- estado
-                JOIN NEW_MODEL.MENSAJERIA_ESTADO t_estado ON t_mensajeria.MENSAJERIA_ESTADO = t_estado.MENSAJERIA_ESTADO_NRO
-                JOIN BI_MODEL.TIEMPO t_tiempo ON t_tiempo.MES = MONTH(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA_ENTREGA)
-            GROUP BY
-                DATEPART(WEEKDAY, t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA),
-                dbo.obtenerRangoHorarioNro(t_envio_mensajeria.ENVIO_MENSAJERIA_FECHA),
-                t_localidad.LOCALIDAD_NRO,
-                t_tipo_paquete.TIPO_PAQUETE_NOMBRE,
-                t_estado.MENSAJERIA_ESTADO_NRO
-        ) AS t1;
-END;
