@@ -375,6 +375,31 @@ AS
 			HECHO_PEDIDO_CANTIDAD_PEDIDOS_CANCELADOS 
 		)
 		SELECT 	
+    DATEPART(WEEKDAY,t_pedido_envio.PEDIDO_ENVIO_FECHA) AS DIA_NRO,
+    dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA) AS RANGO,
+    t_rango_horario.RANGO_HORARIO_INICIO AS HORA_INICIO,
+    t_rango_horario.RANGO_HORARIO_FIN AS HORA_FIN,
+    t_localidad.LOCALIDAD_NOMBRE AS LOCALIDAD,
+    t_categoria.CATEGORIA_NOMBRE AS CATEGORIA,
+    t_tiempo.MES AS MES,
+    t_tiempo.ANIO AS ANIO,
+    COUNT(DISTINCT t_pedido.PEDIDO_NRO) AS CANT_PEDIDOS,
+    COUNT(DISTINCT CASE WHEN t_pedido_estado.PEDIDO_ESTADO = 'Estado Mensajeria Cancelado' THEN ISNULL(t_pedido.PEDIDO_NRO, 0) END) AS CANT_PEDIDOS_CANCELADOS
+FROM NEW_MODEL.PEDIDO t_pedido
+JOIN NEW_MODEL.PEDIDO_ENVIO t_pedido_envio ON t_pedido_envio.PEDIDO_ENVIO_NRO = t_pedido.PEDIDO_ENVIO_NRO
+JOIN BI_MODEL.RANGO_HORARIO t_rango_horario ON t_rango_horario.RANGO_HORARIO_NRO = dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA)
+JOIN NEW_MODEL.DIRECCION_USUARIO t_direccion_usuario ON t_direccion_usuario.DIRECCION_USUARIO_NRO = t_pedido_envio.PEDIDO_ENVIO_DIRECCION_USUARIO_NRO
+JOIN NEW_MODEL.LOCALIDAD t_localidad ON t_localidad.LOCALIDAD_NRO = t_direccion_usuario.DIRECCION_USUARIO_LOCALIDAD_NRO
+JOIN NEW_MODEL.ITEM t_item ON t_item.ITEM_PEDIDO_NRO = t_pedido.PEDIDO_NRO
+JOIN NEW_MODEL.LOCAL t_local ON t_local.LOCAL_NRO = t_item.ITEM_LOCAL_PRODUCTO_LOCAL_NRO
+JOIN BI_MODEL.TIPO_LOCAL t_tipo_local ON t_tipo_local.TIPO_LOCAL_NRO = t_local.LOCAL_TIPO_LOCAL_NRO
+JOIN BI_MODEL.CATEGORIA t_categoria ON t_categoria.CATEGORIA_NRO = t_tipo_local.TIPO_LOCAL_CATEGORIA_NRO
+JOIN BI_MODEL.TIEMPO t_tiempo ON t_tiempo.MES = MONTH(t_pedido_envio.PEDIDO_ENVIO_FECHA)
+JOIN NEW_MODEL.PEDIDO_ESTADO t_pedido_estado ON t_pedido_estado.PEDIDO_ESTADO_NRO = t_pedido.PEDIDO_ESTADO_NRO
+GROUP BY DATEPART(WEEKDAY,t_pedido_envio.PEDIDO_ENVIO_FECHA), dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA), t_rango_horario.RANGO_HORARIO_INICIO, t_rango_horario.RANGO_HORARIO_FIN, t_localidad.LOCALIDAD_NOMBRE, t_categoria.CATEGORIA_NOMBRE, t_tiempo.MES, t_tiempo.ANIO
+ORDER BY MES, DIA_NRO;
+
+		SELECT 	
 			DATEPART(WEEKDAY,t_pedido_envio.PEDIDO_ENVIO_FECHA) AS DIA_NRO,
 			dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA) AS RANGO,
 			t_rango_horario.RANGO_HORARIO_INICIO AS HORA_INICIO,
@@ -382,8 +407,10 @@ AS
 			t_localidad.LOCALIDAD_NOMBRE AS LOCALIDAD,
 			t_categoria.CATEGORIA_NOMBRE AS CATEGORIA,
 			t_tiempo.MES AS MES,
-			t_tiempo.ANIO AS ANIO ,
-			COUNT (DISTINCT t_pedido.PEDIDO_NRO) AS CANT_PEDIDOS
+			t_tiempo.ANIO AS ANIO,
+			COUNT(DISTINCT t_pedido.PEDIDO_NRO) AS CANT_PEDIDOS,
+			COUNT(DISTINCT CASE WHEN t_pedido_estado.PEDIDO_ESTADO = 'Estado Mensajeria Cancelado' THEN t_pedido.PEDIDO_NRO ELSE NULL END) AS CANT_PEDIDOS_CANCELADOS
+
 		FROM NEW_MODEL.PEDIDO t_pedido
 		JOIN NEW_MODEL.PEDIDO_ENVIO t_pedido_envio ON t_pedido_envio.PEDIDO_ENVIO_NRO = t_pedido.PEDIDO_ENVIO_NRO
 		JOIN BI_MODEL.RANGO_HORARIO t_rango_horario ON t_rango_horario.RANGO_HORARIO_NRO = dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA)
@@ -394,13 +421,38 @@ AS
 		JOIN BI_MODEL.TIPO_LOCAL t_tipo_local ON t_tipo_local.TIPO_LOCAL_NRO = t_local.LOCAL_TIPO_LOCAL_NRO
 		JOIN BI_MODEL.CATEGORIA t_categoria ON t_categoria.CATEGORIA_NRO = t_tipo_local.TIPO_LOCAL_CATEGORIA_NRO
 		JOIN BI_MODEL.TIEMPO t_tiempo ON t_tiempo.MES = MONTH(t_pedido_envio.PEDIDO_ENVIO_FECHA)
+		JOIN NEW_MODEL.PEDIDO_ESTADO t_pedido_estado ON t_pedido_estado.PEDIDO_ESTADO_NRO = t_pedido.PEDIDO_ESTADO_NRO
 		GROUP BY DATEPART(WEEKDAY,t_pedido_envio.PEDIDO_ENVIO_FECHA), dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA), t_rango_horario.RANGO_HORARIO_INICIO,t_rango_horario.RANGO_HORARIO_FIN, t_localidad.LOCALIDAD_NOMBRE, t_categoria.CATEGORIA_NOMBRE, t_tiempo.MES, t_tiempo.ANIO
-		ORDER BY MES,DIA_NRO
-
-		-- SELECT SUM(CANT_PEDIDOS) FROM () T
 
 		SELECT DISTINCT DATEPART(hour, PEDIDO_ENVIO_FECHA) FROM NEW_MODEL.PEDIDO_ENVIO
-		SELECT * FROM BI_MODEL.TIPO_LOCAL
+		SELECT * FROM NEW_MODEL.PEDIDO_ESTADO 
+
+
+		SELECT SUM(CANT_PEDIDOS_CANCELADOS) FROM (SELECT 	
+    DATEPART(WEEKDAY,t_pedido_envio.PEDIDO_ENVIO_FECHA) AS DIA_NRO,
+    dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA) AS RANGO,
+    t_rango_horario.RANGO_HORARIO_INICIO AS HORA_INICIO,
+    t_rango_horario.RANGO_HORARIO_FIN AS HORA_FIN,
+    t_localidad.LOCALIDAD_NOMBRE AS LOCALIDAD,
+    t_categoria.CATEGORIA_NOMBRE AS CATEGORIA,
+    t_tiempo.MES AS MES,
+    t_tiempo.ANIO AS ANIO,
+    COUNT(DISTINCT t_pedido.PEDIDO_NRO) AS CANT_PEDIDOS,
+    COUNT(DISTINCT CASE WHEN t_pedido_estado.PEDIDO_ESTADO = 'Estado Mensajeria Cancelado' THEN COALESCE(t_pedido.PEDIDO_NRO, 0) END) AS CANT_PEDIDOS_CANCELADOS
+FROM NEW_MODEL.PEDIDO t_pedido
+JOIN NEW_MODEL.PEDIDO_ENVIO t_pedido_envio ON t_pedido_envio.PEDIDO_ENVIO_NRO = t_pedido.PEDIDO_ENVIO_NRO
+JOIN BI_MODEL.RANGO_HORARIO t_rango_horario ON t_rango_horario.RANGO_HORARIO_NRO = dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA)
+JOIN NEW_MODEL.DIRECCION_USUARIO t_direccion_usuario ON t_direccion_usuario.DIRECCION_USUARIO_NRO = t_pedido_envio.PEDIDO_ENVIO_DIRECCION_USUARIO_NRO
+JOIN NEW_MODEL.LOCALIDAD t_localidad ON t_localidad.LOCALIDAD_NRO = t_direccion_usuario.DIRECCION_USUARIO_LOCALIDAD_NRO
+JOIN NEW_MODEL.ITEM t_item ON t_item.ITEM_PEDIDO_NRO = t_pedido.PEDIDO_NRO
+JOIN NEW_MODEL.LOCAL t_local ON t_local.LOCAL_NRO = t_item.ITEM_LOCAL_PRODUCTO_LOCAL_NRO
+JOIN BI_MODEL.TIPO_LOCAL t_tipo_local ON t_tipo_local.TIPO_LOCAL_NRO = t_local.LOCAL_TIPO_LOCAL_NRO
+JOIN BI_MODEL.CATEGORIA t_categoria ON t_categoria.CATEGORIA_NRO = t_tipo_local.TIPO_LOCAL_CATEGORIA_NRO
+JOIN BI_MODEL.TIEMPO t_tiempo ON t_tiempo.MES = MONTH(t_pedido_envio.PEDIDO_ENVIO_FECHA)
+JOIN NEW_MODEL.PEDIDO_ESTADO t_pedido_estado ON t_pedido_estado.PEDIDO_ESTADO_NRO = t_pedido.PEDIDO_ESTADO_NRO
+GROUP BY DATEPART(WEEKDAY,t_pedido_envio.PEDIDO_ENVIO_FECHA), dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA), t_rango_horario.RANGO_HORARIO_INICIO, t_rango_horario.RANGO_HORARIO_FIN, t_localidad.LOCALIDAD_NOMBRE, t_categoria.CATEGORIA_NOMBRE, t_tiempo.MES, t_tiempo.ANIO
+) T
+		'Estado Mensajeria Cancelado'
     END
 GO
 
