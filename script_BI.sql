@@ -373,15 +373,17 @@ AS
 		)
 		SELECT 	
 			DATEPART(WEEKDAY,t_pedido_envio.PEDIDO_ENVIO_FECHA) AS DIA_NRO,
-			dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA),
-			t_rango_horario.RANGO_HORARIO_INICIO,
-			t_rango_horario.RANGO_HORARIO_FIN,
+			dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA) AS RANGO,
+			t_rango_horario.RANGO_HORARIO_INICIO AS HORA_INICIO,
+			t_rango_horario.RANGO_HORARIO_FIN AS HORA_FIN,
+			t_localidad.LOCALIDAD_NOMBRE AS LOCALIDAD,
 			COUNT(*) AS CANT_PEDIDOS
 		FROM NEW_MODEL.PEDIDO t_pedido
 		JOIN NEW_MODEL.PEDIDO_ENVIO t_pedido_envio ON t_pedido_envio.PEDIDO_ENVIO_NRO = t_pedido.PEDIDO_ENVIO_NRO
 		JOIN BI_MODEL.RANGO_HORARIO t_rango_horario ON t_rango_horario.RANGO_HORARIO_NRO = dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA)
-		GROUP BY DATEPART(WEEKDAY,t_pedido_envio.PEDIDO_ENVIO_FECHA), dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA), t_rango_horario.RANGO_HORARIO_INICIO,t_rango_horario.RANGO_HORARIO_FIN
-		ORDER BY 1,2
+		JOIN NEW_MODEL.DIRECCION_USUARIO t_direccion_usuario ON t_direccion_usuario.DIRECCION_USUARIO_NRO = t_pedido_envio.PEDIDO_ENVIO_DIRECCION_USUARIO_NRO
+		JOIN NEW_MODEL.LOCALIDAD t_localidad ON t_localidad.LOCALIDAD_NRO = t_direccion_usuario.DIRECCION_USUARIO_LOCALIDAD_NRO
+		GROUP BY DATEPART(WEEKDAY,t_pedido_envio.PEDIDO_ENVIO_FECHA), dbo.obtenerRangoHorarioNro(t_pedido_envio.PEDIDO_ENVIO_FECHA), t_rango_horario.RANGO_HORARIO_INICIO,t_rango_horario.RANGO_HORARIO_FIN, t_localidad.LOCALIDAD_NOMBRE
 		
 		SELECT DISTINCT DATEPART(hour, PEDIDO_ENVIO_FECHA) FROM NEW_MODEL.PEDIDO_ENVIO
     END
